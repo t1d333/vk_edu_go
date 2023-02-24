@@ -10,8 +10,6 @@ import (
   "github.com/t1d333/vk_edu_golang/uniq/internal/uniq"
 )
 
-
-
 func ParseFlags() (uniq.Options, []string) {
   var opt uniq.Options
   flag.BoolVar(&opt.ShowCount, "c", false, "Count the number of occurrences of a string in the input")
@@ -23,7 +21,6 @@ func ParseFlags() (uniq.Options, []string) {
   flag.Parse()
   return opt, flag.CommandLine.Args()
 }
-
 
 func OpenInputOutput(files []string) (*os.File, *os.File, error) {
   var (
@@ -49,6 +46,12 @@ func OpenInputOutput(files []string) (*os.File, *os.File, error) {
 func main() {
 
   options, files := ParseFlags()
+
+  if err := options.IsValid(); err != nil {
+    fmt.Fprintln(os.Stderr, err)
+    return
+  }
+
   input, output, err := OpenInputOutput(files)
   defer input.Close()
   defer output.Close()
@@ -58,15 +61,15 @@ func main() {
     return
   }
 
-  lines, err :=  reader.ReadLines(input)
+  lines, err := reader.ReadLines(input)
   if err != nil {
     fmt.Fprintln(os.Stderr, err)
     return
   }
 
-  if lines, err := uniq.Uniq(lines, options); err != nil {
-    fmt.Fprintln(os.Stderr, err)
-  } else if err := writer.WriteLines(output, lines); err != nil {
+  lines = uniq.Uniq(lines, options)
+
+  if err := writer.WriteLines(output, lines); err != nil {
       fmt.Fprintln(os.Stderr, err)
   }
 }

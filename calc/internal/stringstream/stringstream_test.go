@@ -1,4 +1,4 @@
-package stream
+package stringstream
 
 import (
 	"testing"
@@ -7,8 +7,8 @@ import (
 )
 
 func TestStreamCreation(t *testing.T) {
-  tmp := MakeStream("test")
-  require.Equal(t, "test", tmp.str) 
+  tmp := MakeStringStream("test")
+  require.Equal(t, []rune("test"), tmp.str) 
   require.Equal(t, 4, tmp.length)
   require.Equal(t, 0, tmp.curChar)
   tmp.ReadChar()
@@ -16,11 +16,11 @@ func TestStreamCreation(t *testing.T) {
 }
 
 func TestStream(t *testing.T) {
-  s := MakeStream("abcde")
+  s := MakeStringStream("abcde")
   for i := 0; i < 5; i++ {
     got, err := s.ReadChar()
     require.NoError(t, err)
-    require.Equal(t, uint8('a' + i), got)
+    require.Equal(t, int32('a' + i), got)
   }
   require.True(t, s.Empty())
   _, err := s.PeekChar()

@@ -15,17 +15,25 @@ type Options struct {
   CharsNum int
 }
 
-func checkOptions(opt Options) error {
-  if (opt.ShowCount && opt.RepeatedOnly) || (opt.ShowCount && opt.UniqOnly) || (opt.RepeatedOnly && opt.UniqOnly) {
+func boolToInt(b bool) int {
+  if b {
+    return 1
+  }
+  return 0
+}
+
+func (o *Options) IsValid() error {
+  c, u, d := boolToInt(o.ShowCount), boolToInt(o.UniqOnly), boolToInt(o.RepeatedOnly)
+  if c + u + d > 1 {
     return errors.New("Usage: go run main.go [-c | -d | -u] [-i] [-f num] [-s chars] [input_file [output_file]]")
   }
 
-  if opt.FieldsNum < 0 {
-    return errors.New(fmt.Sprintf("%d: %s", opt.FieldsNum, "invalid number of fields to skip"))
+  if o.FieldsNum < 0 {
+    return errors.New(fmt.Sprintf("%d: %s", o.FieldsNum, "invalid number of fields to skip"))
   }
 
-  if opt.CharsNum < 0 {
-    return errors.New(fmt.Sprintf("%d: %s", opt.CharsNum, "invalid number of bytes to skip"))
+  if o.CharsNum < 0 {
+    return errors.New(fmt.Sprintf("%d: %s", o.CharsNum, "invalid number of bytes to skip"))
   }
 
   return nil
@@ -33,38 +41,32 @@ func checkOptions(opt Options) error {
 
 func trimFields(str string, numFields int) string { 
   fields := strings.Split(str, " ") 
-  for index := range fields {
-    if index == numFields {
-      break
-    }
-    fields = fields[1:]
+  if numFields >= len(fields) {
+    return ""
+  } else {
+    return strings.Join(fields[numFields:], " ") 
   }
-
-  return strings.Join(fields, " ") 
 }
 
 func trimChars(str string, numChars int) string {
-  for index := range str {
-    if index == numChars {
-      break
-    }
-    str = str[1:]
+  if numChars >= len(str) {
+    return ""
+  } else {
+    return str[numChars:]
   }
-  return str
 }
 
-func equalStrings(str1, str2 string, IgnoreLetterCase bool) bool {
-  if IgnoreLetterCase { 
+
+func equalStrings(str1, str2 string, opt Options) bool {
+  str1 = trimChars(trimFields(str1, opt.FieldsNum), opt.CharsNum)
+  str2 = trimChars(trimFields(str2, opt.FieldsNum), opt.CharsNum)
+  if opt.IgnoreLetterCase { 
     return strings.EqualFold(str1, str2)
   }
   return strings.Compare(str1, str2) == 0
 }
 
-func Uniq(lines []string, opt Options) ([]string, error) {
-  if err := checkOptions(opt); err != nil {
-    return lines, err
-  }
-
+func Uniq(lines []string, opt Options) []string {
   var (
     i, j = 0, 0
     linesCount = len(lines)
@@ -72,22 +74,18 @@ func Uniq(lines []string, opt Options) ([]string, error) {
   )
 
   for i = 0; i < linesCount; i = j {
-    for j = i; (j < linesCount); j++ {
-      linePrev, lineNext := trimFields(lines[i], opt.FieldsNum), trimFields(lines[j], opt.FieldsNum)
-      linePrev, lineNext = trimChars(linePrev, opt.CharsNum), trimChars(lineNext, opt.CharsNum)
-      if equalStrings(linePrev, lineNext, opt.IgnoreLetterCase) {
-        continue
-      }
-      break
-    }
+    line := lines[i]
+    for j = i; j < linesCount && equalStrings(lines[i], lines[j], opt); j++ {}
+
     if (opt.RepeatedOnly && ((j - i) == 1)) || (opt.UniqOnly && ((j - i) > 1)) {
       continue
     }
-    line := lines[i]
+
     if opt.ShowCount {
       line = fmt.Sprintf("%d %s", j - i, line)
     }
+
     result = append(result, line)
   }
-  return result, nil
+  return result
 }

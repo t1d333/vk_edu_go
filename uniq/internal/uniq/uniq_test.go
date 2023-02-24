@@ -149,7 +149,7 @@ var testsWithSFlag = map[string]struct {
 func TestSimple(t *testing.T) {
   var opt Options
   for name, test := range simpleTests {
-    got, _ := Uniq(test.input, opt)
+    got := Uniq(test.input, opt)
     require.Equal(t, test.output, got, name)  
   }
 }
@@ -158,7 +158,7 @@ func TestCFlag(t *testing.T) {
   var opt Options = Options{ShowCount: true}
 
   for name, test := range testsWithCFlag {
-    got, _ := Uniq(test.input, opt)
+    got := Uniq(test.input, opt)
     require.Equal(t, test.output, got, name)  
   }
 }
@@ -166,7 +166,7 @@ func TestCFlag(t *testing.T) {
 func TestDFlag(t *testing.T) {
   var opt Options = Options{RepeatedOnly: true}
   for name, test := range testsWithDFlag {
-    got, _ := Uniq(test.input, opt)
+    got := Uniq(test.input, opt)
     require.Equal(t, test.output, got, name)  
   }
 }
@@ -174,7 +174,7 @@ func TestDFlag(t *testing.T) {
 func TestUFlag(t *testing.T) {
   var opt Options = Options{UniqOnly: true}
   for name, test := range testsWithUFlag {
-    got, _ := Uniq(test.input, opt)
+    got := Uniq(test.input, opt)
     require.Equal(t, test.output, got, name)  
   }
 }
@@ -182,7 +182,7 @@ func TestUFlag(t *testing.T) {
 func TestFFlag(t *testing.T) {
   for name, test := range testsWithFFlag {
     var opt Options = Options{FieldsNum: test.FieldsNum}
-    got, _ := Uniq(test.input, opt)
+    got := Uniq(test.input, opt)
     require.Equal(t, test.output, got, name)  
   }
 }
@@ -190,51 +190,46 @@ func TestFFlag(t *testing.T) {
 func TestSFlag(t *testing.T) {
   for name, test := range testsWithSFlag {
     var opt Options = Options{CharsNum: test.CharsNum}
-    got, _ := Uniq(test.input, opt)
+    got := Uniq(test.input, opt)
     require.Equal(t, test.output, got, name)  
   }
 }
 
 func TestWithIncorrectFieldsNum(t *testing.T) {
-  input := []string{"test"}
   opt := Options{FieldsNum: -10}
-  _, err := Uniq(input, opt)
+  err := opt.IsValid()
   require.Error(t, err)
 }
 
 func TestWithIncorrectCharsNum(t *testing.T) {
-  input := []string{"test"}
   opt := Options{CharsNum: -10}
-  _, err := Uniq(input, opt)
+  err := opt.IsValid()
   require.Error(t, err)
 }
 
 func TestWithFlagsCAndD(t *testing.T) {
- input := []string{"test"}
   opt := Options{
     RepeatedOnly: true,
     ShowCount: true,
   }
-  _, err := Uniq(input, opt)
+  err := opt.IsValid()
   require.Error(t, err)
 }
 
 func TestWithFlagsCAndU(t *testing.T) {
- input := []string{"test"}
   opt := Options{
     UniqOnly: true,
     ShowCount: true,
   }
-  _, err := Uniq(input, opt)
+  err := opt.IsValid()
   require.Error(t, err)
 }
 
 func TestWithFlagsDAndU(t *testing.T) {
- input := []string{"test"}
   opt := Options{
     UniqOnly: true,
     RepeatedOnly: true,
   }
-  _, err := Uniq(input, opt)
+  err := opt.IsValid()
   require.Error(t, err)
 }
