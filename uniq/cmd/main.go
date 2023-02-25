@@ -37,7 +37,7 @@ func OpenInputOutput(files []string) (*os.File, *os.File, error) {
       return input, output, err
     }
     output, err = os.Create(files[1])
-  case  filesLen > 2:
+  case filesLen > 2:
     err = errors.New(fmt.Sprintf("extra operand ‘%s’", files[2]))
   }
   return input, output, err

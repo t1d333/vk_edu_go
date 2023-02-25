@@ -1,8 +1,9 @@
 package stringstream
 
-
 import (
-  "errors"
+	"errors"
+
+	"github.com/t1d333/vk_edu_golang/calc/internal/stream"
 )
 
 type StringStream struct {
@@ -11,7 +12,7 @@ type StringStream struct {
   length int
 }
 
-func MakeStringStream(str string) *StringStream {
+func MakeStringStream(str string) stream.Stream {
   return &StringStream {
     str: []rune(str),
     curChar: 0,
