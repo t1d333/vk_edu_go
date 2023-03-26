@@ -96,10 +96,10 @@ func (w *spamWorker) doJob(msgid MsgID, out chan interface{}) {
 
 func CheckSpam(in, out chan interface{}) {
 	wg := sync.WaitGroup{}
-	workersPool := make(chan *spamWorker, HasSpamMaxAsyncRequests)
+	workersPool := make(chan spamWorker, HasSpamMaxAsyncRequests)
 
 	for i := 0; i < HasSpamMaxAsyncRequests; i++ {
-		workersPool <- &spamWorker{}
+		workersPool <- spamWorker{}
 	}
 
 	for msgid := range in {
@@ -107,7 +107,7 @@ func CheckSpam(in, out chan interface{}) {
 		worker := <-workersPool
 		wg.Add(1)
 
-		go (func(msgid MsgID, worker *spamWorker) {
+		go (func(msgid MsgID, worker spamWorker) {
 			defer wg.Done()
 			worker.doJob(msgid, out)
 			workersPool <- worker
