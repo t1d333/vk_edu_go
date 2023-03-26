@@ -5,7 +5,6 @@ import (
 	"os"
 	"sort"
 	"sync"
-	"sync/atomic"
 )
 
 func RunPipeline(cmds ...cmd) {
@@ -18,12 +17,14 @@ func RunPipeline(cmds ...cmd) {
 
 	for i := 0; i < len(cmds); i++ {
 		wg.Add(1)
+
 		go (func(ch1, ch2 chan interface{}, f cmd) {
 			f(ch1, ch2)
 			wg.Done()
 			close(ch2)
 		})(channels[i], channels[i+1], cmds[i])
 	}
+
 	wg.Wait()
 }
 
@@ -32,19 +33,17 @@ func SelectUsers(in, out chan interface{}) {
 	users := sync.Map{}
 	for email := range in {
 		wg.Add(1)
-		go (func(email string, users *sync.Map, out chan interface{}) {
+
+		go (func(email string) {
 			defer wg.Done()
 			user := GetUser(email)
 			alias, hasAlias := usersAliases[user.Email]
-			_, exists := users.Load(alias)
-			if _, ok := users.Load(user.Email); !ok && hasAlias && !exists {
+			_, exists := users.LoadOrStore(alias, 1)
+
+			if _, ok := users.LoadOrStore(user.Email, 1); !ok && (!hasAlias || (!exists && hasAlias)) {
 				out <- user
-				users.Store(alias, 1)
-			} else if !ok {
-				out <- user
-				users.Store(user.Email, 1)
 			}
-		})(email.(string), &users, out)
+		})(email.(string))
 	}
 
 	wg.Wait()
@@ -53,13 +52,15 @@ func SelectUsers(in, out chan interface{}) {
 func SelectMessages(in, out chan interface{}) {
 	users := make([]User, 0)
 	wg := &sync.WaitGroup{}
-	worker := func(out chan interface{}, users ...User) {
+
+	worker := func(users ...User) {
 		defer wg.Done()
 		msgs, err := GetMessages(users...)
-        if err != nil {
-            fmt.Fprintln(os.Stderr, err)
-            return
-        }
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			return
+		}
+
 		for _, msg := range msgs {
 			out <- MsgID(msg)
 		}
@@ -69,45 +70,49 @@ func SelectMessages(in, out chan interface{}) {
 		users = append(users, user.(User))
 		if len(users) == GetMessagesMaxUsersBatch {
 			wg.Add(1)
-			go worker(out, users...)
+			go worker(users...)
 			users = make([]User, 0)
 		}
 	}
 
 	if len(users) != 0 {
 		wg.Add(1)
-		go worker(out, users...)
+		go worker(users...)
 	}
 	wg.Wait()
 }
 
-func CheckSpam(in, out chan interface{}) {
-	counter := int32(0)
+type spamWorker struct{}
 
-	wg := sync.WaitGroup{}
-	worker := func(msgid MsgID, counter *int32) {
-		defer wg.Done()
-		defer atomic.AddInt32(counter, -1)
-		res, err := HasSpam(msgid)
-        if err != nil {
-            fmt.Fprintln(os.Stderr, err)
-            return
-        }
-		out <- MsgData{msgid, res}
+func (w *spamWorker) doJob(msgid MsgID, out chan interface{}) {
+	res, err := HasSpam(msgid)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return
 	}
+
+	out <- MsgData{msgid, res}
+}
+
+func CheckSpam(in, out chan interface{}) {
+	wg := sync.WaitGroup{}
+	workersPool := make(chan *spamWorker, HasSpamMaxAsyncRequests)
+
+	for i := 0; i < HasSpamMaxAsyncRequests; i++ {
+		workersPool <- &spamWorker{}
+	}
+
 	for msgid := range in {
 		id := msgid.(MsgID)
-
+		worker := <-workersPool
 		wg.Add(1)
-		if atomic.LoadInt32(&counter) < int32(HasSpamMaxAsyncRequests) {
-			atomic.AddInt32(&counter, 1)
-			go worker(id, &counter)
-		} else {
-			for atomic.LoadInt32(&counter) >= int32(HasSpamMaxAsyncRequests) {
-			}
-			atomic.AddInt32(&counter, 1)
-			go worker(id, &counter)
-		}
+
+		go (func(msgid MsgID, worker *spamWorker) {
+			defer wg.Done()
+			worker.doJob(msgid, out)
+			workersPool <- worker
+		})(id, worker)
+
 	}
 	wg.Wait()
 }
